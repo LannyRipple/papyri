@@ -32,6 +32,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --world WORLD         location of your world folder or save folder
   --type {java,bds}     server type, bedrock or java
+  --btw                 adjust map centers for Better Than Wolves
   --includeunlimitedtracking
                         include maps that have unlimited tracking on, this
                         includes older maps from previous Minecraft versions
