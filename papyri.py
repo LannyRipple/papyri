@@ -256,7 +256,7 @@ def filterLatestMapPngsById(mapPngs):
     return latestMapPngs
 
 
-def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
+def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False, isBTW=False):
     nbtMapData = []
     if serverType == "bds":
         # open leveldb
@@ -303,9 +303,15 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
 
         if mapUnlimitedTracking and not unlimitedTracking:
             continue
+
+        btwOset = 0
+
+        if isBTW:
+            btwOset = 1024 - 64
+
         scale = int(mapNbt["scale"])
-        x = int(mapNbt["xCenter"])
-        z = int(mapNbt["zCenter"])
+        x = int(mapNbt["xCenter"]) + btwOset
+        z = int(mapNbt["zCenter"]) + btwOset
 
         dimension = mapNbt["dimension"]
         mapColors = mapNbt["colors"]
@@ -669,6 +675,7 @@ def main():
     parser = argparse.ArgumentParser(description='convert minecraft maps to the web')
     parser.add_argument('--world', help="location of your world folder or save folder", required=True)
     parser.add_argument('--type', help="server type, bedrock or java", choices=["java", "bds"], required=True)
+    parser.add_argument('--btw', help="adjust map centers for Better Than Wolves", action="store_true")
     parser.add_argument('--includeunlimitedtracking', help="include maps that have unlimited tracking on, this includes older maps from previous Minecraft versions and treasure maps in +1.13", action="store_true")
     parser.add_argument('--disablezoomsort', help="don't sort maps by zoom level before rendering, newer maps of higher zoom level will cover lower level maps", action="store_true")
     #parser.add_argument('--overlaymca', help="generate the regionfile overlay (Java only)", action="store_true")
@@ -697,7 +704,7 @@ def main():
     mergedMapsOutput = os.path.join(args.output, "merged-maps")
 
     # figure out if the input folder is java or bedrock
-    latestMaps = makeMaps(args.world, mapsOutput, serverType=args.type, unlimitedTracking=args.includeunlimitedtracking)
+    latestMaps = makeMaps(args.world, mapsOutput, serverType=args.type, unlimitedTracking=args.includeunlimitedtracking, isBTW=args.btw)
 
     # make the level 4 maps
     mergeToLevel4(mapsOutput, mergedMapsOutput, disablezoomsort=args.disablezoomsort)
