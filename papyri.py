@@ -134,21 +134,21 @@ dimDict = {-1: "minecraft:the_nether",
 
 def findMapFiles(inputFolder):
     mapFiles = []
-    
+
     folderTree = list(os.walk(inputFolder))
-    
+
     dataFolders = [f for f in folderTree if f[0].endswith(os.sep + "data")]
-    
+
     for folder in dataFolders:
         maybeMapFiles = [os.path.join(folder[0], f) for f in folder[2] if f.startswith("map_") and f.endswith(".dat")]
         if "idcounts.dat" in folder[2]:
             logging.info("Found %s maps in %s", len(maybeMapFiles), folder[0])
             mapFiles = maybeMapFiles
-    
+
     if not mapFiles:
         logging.info("Didn't find any maps, did you specify the correct world location?")
         sys.exit(1)
-    
+
     return mapFiles
 
 
@@ -214,22 +214,22 @@ def mapPngsSortedByEpoch(mapPngs):
     """Returns a list of latest map png files by their center"""
 
     # get all generated maps
-    
+
     centerEpochs = []
 
 
     for mapPng in mapPngs:
         centerEpochs.append((mapPng.epoch, mapPng))
-        
+
     # sort the whole thing by epoch
     centerEpochs.sort(key=operator.itemgetter(0))
-    
+
     # for centerEpoch in centerEpochs:
     #     # this will only keep the latest map ids around for rendering
     #     [centerEpoch[0]] = centerEpoch[2]
-   
+
     # latestMapPngs = list(filterDict.values())
-    
+
     return [m[1] for m in centerEpochs]
 
 
@@ -237,22 +237,22 @@ def filterLatestMapPngsById(mapPngs):
     """Returns a list of latest map png files by Id"""
 
     # get all generated maps
-   
+
     idEpochs = []
     filterDict = {}
 
     for mapPng in mapPngs:
         idEpochs.append((mapPng.mapId, mapPng.epoch, mapPng))
-    
+
     # sort the whole thing by epoch
     idEpochs.sort(key=operator.itemgetter(1))
-    
+
     for idEpoch in idEpochs:
         # this will only keep the latest map ids around for rendering
         filterDict[idEpoch[0]] = idEpoch[2]
-    
+
     latestMapPngs = list(filterDict.values())
-    
+
     return latestMapPngs
 
 
@@ -274,7 +274,7 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
                 epoch = 0
                 nbtMapData.append({"epoch": epoch, "id": mapId, "nbt": mapNbt})
 
-    elif serverType == "java":   
+    elif serverType == "java":
         mapDatFiles = findMapFiles(worldFolder)
         for mapDatFile in tqdm(mapDatFiles, "map_*.dat -> nbt".ljust(24), bar_format="{l_bar}{bar}"):
             mapNbtFile = nbtlib.load(mapDatFile)
@@ -283,15 +283,15 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
             epoch = int(os.path.getmtime(mapDatFile))
             nbtMapData.append({"epoch": epoch, "id": mapId, "nbt": mapNbt})
 
-    
-    
-    
+
+
+
     maps = []
     os.makedirs(outputFolder, exist_ok=True)
     mapPngs = getMapPngs(outputFolder)
-    
+
     currentIds = {x.mapId: x for x in mapPngs}
-    
+
     for nbtMap in tqdm(nbtMapData, "nbt -> png".ljust(24), bar_format="{l_bar}{bar}"):
         mapId = nbtMap["id"]
         mapNbt = nbtMap["nbt"]
@@ -306,10 +306,10 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
         scale = int(mapNbt["scale"])
         x = int(mapNbt["xCenter"])
         z = int(mapNbt["zCenter"])
-        
+
         dimension = mapNbt["dimension"]
         mapColors = mapNbt["colors"]
-        
+
         if type(dimension) == nbtlib.tag.Int:
             dimension = dimDict[mapNbt["dimension"]]
         elif type(dimension) == nbtlib.tag.Byte:
@@ -317,7 +317,7 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
         else:
             dimension = dimension.strip('"')
         dimension = dimension.replace(":", "@")
-        
+
         try:
             mapBanners = mapNbt["banners"]
         except KeyError:
@@ -334,13 +334,13 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
             Y = int(banner["Pos"]["Y"])
             Z = int(banner["Pos"]["Z"])
             color = banner["Color"]
-            
+
             try:
                 name = json.loads(banner["Name"])["text"]
 
             except KeyError:
                 name = ""
-            
+
             bannerDict = {"X": X,
                           "Y": Y,
                           "Z": Z,
@@ -362,7 +362,7 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
                         "rotation": rotation}
             frames.append(frameDict)
         # logging.debug(mapColors)
-        
+
         if serverType == "bds":
             mapImage = Image.frombytes("RGBA", (128, 128),
                                        bytes([x % 256 for x in mapColors]),
@@ -371,14 +371,14 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
             colorTuples = [allColors[x % 256] for x in mapColors]
             mapImage = Image.new("RGBA", (128, 128))
             mapImage.putdata(colorTuples)
-        
+
         mapHash = hashlib.md5(mapImage.tobytes()).hexdigest()
-        
+
         # empty map
         if mapHash == "fcd6bcb56c1689fcef28b57c22475bad":
             continue
-        
-        
+
+
         if mapId not in currentIds:
             # brand new image
             logging.debug("%s is a new map", mapId)
@@ -388,35 +388,35 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
             logging.debug("%s is already known", mapId)
             if mapHash != currentIds.get(mapId).mapHash:
                 # map has changed based on the hash
-                
+
                 logging.debug("%s changed and will get an updated epoch", mapId)
                 epoch = now if not mapEpoch else mapEpoch
 
             elif mapEpoch > currentIds.get(mapId).epoch:
                 logging.debug("%s has a more recent epoch from it's dat file, updating", mapId)
                 epoch = mapEpoch
-            
+
             else:
                 logging.debug("%s has not changed and will keep it's epoch", mapId)
                 epoch = currentIds.get(mapId).epoch
 
-            
 
-        
-       
+
+
+
         mapPng = MapPngTuple(mapId=mapId,
                              mapHash=mapHash,
                              epoch=epoch,
                              dimension=dimension,
                              x=x,
-                             z=z, 
+                             z=z,
                              scale=scale)
 
 
         mapImage = mapImage.resize((128 * 2 ** scale,) * 2, Image.Resampling.NEAREST)
         filename = mapPngFilenameFormat.format(**mapPng._asdict())
-        
-        
+
+
         try:
             oldFilename = mapPngFilenameFormat.format(**currentIds.get(mapId)._asdict())
             os.remove(os.path.join(outputFolder, oldFilename))
@@ -424,25 +424,25 @@ def makeMaps(worldFolder, outputFolder, serverType, unlimitedTracking=False):
             logging.debug("%s isn't there, didn't delete", mapId)
 
         mapImage.save(os.path.join(outputFolder, filename))
-        
+
         mapData = MapTuple(mapData=mapPng,
                            bannerData=banners,
                            frameData=frames)
         maps.append(mapData)
-    
+
     logging.debug(maps)
     logging.info("Processed %s maps", len(maps))
-    
+
     return maps
 
 
 def getMapPngs(mapPngFolder):
-    mapPngList = [] 
-    
+    mapPngList = []
+
     globString = filenameSeparator.join(6 * ["*"] + ["*.png"])
     # get all the maps
     mapPngs = glob.glob(os.path.join(mapPngFolder, globString))
-    
+
     # iterate over all the maps
     for mapPng in mapPngs:
         filename = os.path.basename(mapPng)
@@ -469,9 +469,9 @@ def getMapPngs(mapPngFolder):
                                       epoch=epoch,
                                       dimension=dimension,
                                       x=x,
-                                      z=z, 
+                                      z=z,
                                       scale=scale))
-    
+
     return mapPngList
 
 
@@ -480,7 +480,7 @@ def mergeToLevel4(mapPngFolder, outputFolder, disablezoomsort):
     # what are we calling these crazy things
 
     filenameFormat = filenameSeparator.join(["{dimension}", "{x}", "{z}.png"])
-    
+
     # make sure the output exsists
     os.makedirs(outputFolder, exist_ok=True)
 
@@ -490,43 +490,43 @@ def mergeToLevel4(mapPngFolder, outputFolder, disablezoomsort):
     # get all the maps
     mapPngs = getMapPngs(mapPngFolder)
     latestMapPngs = mapPngsSortedByEpoch(mapPngs)
-    
+
     # iterate over all the maps
     for mapPng in latestMapPngs:
         # convert the center of the map to the top left corner
         mapTopLeft = (mapPng.x - 128 * 2 ** mapPng.scale // 2 + 64,
                       mapPng.z - 128 * 2 ** mapPng.scale // 2 + 64)
-        
+
         # figure out which level 4 map it belongs to
         level4Coords = (mapTopLeft[0] // 2048 * 2048,
                         mapTopLeft[1] // 2048 * 2048)
-        
+
         # throw it into a "dict"
         level4Dict[mapPng.dimension][level4Coords].append(mapPng)
-    
+
     logging.debug(level4Dict)
-    
+
     # iterate over the level 4 buckets
     for dim in level4Dict.items():
         d = dim[0]
         for coords in tqdm(dim[1].items(), "level 4 of dim: {}".format(d).ljust(24), bar_format="{l_bar}{bar}"):
             c = coords[0]
-            
+
             mapTuples = coords[1]
-            
-            if not disablezoomsort: 
+
+            if not disablezoomsort:
             # sort them, import for the rendering order
                 mapTuples.sort(key=lambda x: x.scale, reverse=True)
-            
+
             # create the level 4 images
             level4MapPng = Image.new("RGBA", (2048, 2048))
-            
+
             # iterate over the maps in each bucket
             for mapTuple in mapTuples:
                 # get the map details
                 mapPngCoords = (divmod(mapTuple.x - 128 * 2 ** mapTuple.scale // 2 + 64, 2048)[1],
                                 divmod(mapTuple.z - 128 * 2 ** mapTuple.scale // 2 + 64, 2048)[1])
-                mapPngFilename = mapPngFilenameFormat.format(**mapTuple._asdict()) 
+                mapPngFilename = mapPngFilenameFormat.format(**mapTuple._asdict())
                 # paste the image into the level 4 map
                 with Image.open(os.path.join(mapPngFolder, mapPngFilename)) as mapPng:
                     level4MapPng.paste(mapPng, mapPngCoords, mapPng)
@@ -541,7 +541,7 @@ def mergeToLevel4(mapPngFolder, outputFolder, disablezoomsort):
 def genZoom17Tiles(level4MapFolder, outputFolder):
     """generates lowest zoom level tiles from combined zoom level 4 maps"""
 
-    # get all the level 4 maps 
+    # get all the level 4 maps
     globString = filenameSeparator.join(["*", "*", "*.png"])
     level4MapFilenames = glob.glob(os.path.join(level4MapFolder, globString))
     # iterate over level4 maps
@@ -610,16 +610,16 @@ def genBannerMarkers(maps, outputFolder):
 
 
 def genMapIdMarkers(maps, outputFolder):
-    mapIdMarkers = [] 
+    mapIdMarkers = []
     dimCenterScaleDict = defaultdict(list)
     for amap in maps:
         mapData = amap.mapData
         dimCenterScaleDict[(mapData.dimension, mapData.x, mapData.z, mapData.scale)].append(amap)
-    
+
     for dimCenterScale in dimCenterScaleDict.items():
         logging.debug("DimCenterScale %s", dimCenterScale[0])
         dimension, x, z, scale = dimCenterScale[0]
-       
+
         maps = []
         for amap in dimCenterScale[1]:
             maps.append({"id": amap.mapData.mapId,
@@ -630,7 +630,7 @@ def genMapIdMarkers(maps, outputFolder):
 
         X = x - 64 * 2 ** scale
         Z = z - 64 * 2 ** scale
-        
+
         width = 128 * 2 ** scale
 
         TL = [X, Z]
@@ -642,14 +642,14 @@ def genMapIdMarkers(maps, outputFolder):
         properties = {"scale": scale,
                       "dimension": dimension,
                       "maps": maps }
-        
+
         geometry = {"type": "Polygon",
                     "coordinates": coordinates}
-        
+
         feature = {"type": "Feature",
                    "properties": properties,
                    "geometry": geometry}
-        
+
         mapIdMarkers.append(feature)
 
     with open(os.path.join(outputFolder, "maps.json"), "+w", encoding="utf-8") as f:
@@ -692,13 +692,13 @@ def main():
 
     # where to the tiles go?
     tileOutput = os.path.join(args.output, "tiles")
-    
+
     # where to the merged zoom level 4 maps go?
     mergedMapsOutput = os.path.join(args.output, "merged-maps")
-    
+
     # figure out if the input folder is java or bedrock
     latestMaps = makeMaps(args.world, mapsOutput, serverType=args.type, unlimitedTracking=args.includeunlimitedtracking)
-    
+
     # make the level 4 maps
     mergeToLevel4(mapsOutput, mergedMapsOutput, disablezoomsort=args.disablezoomsort)
 
@@ -708,16 +708,16 @@ def main():
     # generate the rest of the zoom levels from level 17
     for zoom in range(16, -1, -1):
         extrapolateZoom(tileOutput, zoom)
-    
+
     # make the banner markers
     genBannerMarkers(latestMaps, args.output)
 
     # make the maps info markers
     genMapIdMarkers(latestMaps, args.output)
-    
+
     # make sure the html and assets are present and copied
     copyTemplate(args.output, args.copytemplate)
-    
+
     logging.info("Done")
 
 if __name__ == "__main__":
